@@ -1,94 +1,62 @@
-import socket
+import paho.mqtt.client as mqtt
 import logging
-import time
-import struct
+import socket
 
 # Configure logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
 # MQTT-SN Broker (RSMB) details
-MQTT_SN_BROKER = '100.27.200.155'
-MQTT_SN_PORT = 1883  # Default UDP port for MQTT-SN
+MQTT_SN_BROKER = '54.234.116.159'  # Address of the MQTT-SN broker
+MQTT_SN_PORT = 1883  # UDP port for MQTT-SN (default for RSMB)
+MQTT_SN_TOPIC = 'sensor/datasn'
 
-# MQTT-SN Client settings
-CLIENT_ID = 'sensor-client'
-MQTT_SN_TOPIC = 'sensor/data'
-TOPIC_ID = 1  # Use a predefined topic ID for simplicity
-MESSAGE_ID = 1
+# MQTT Broker (Destination) details
+MQTT_BROKER = '54.234.116.159'
+MQTT_PORT = 1884
+MQTT_TOPIC = 'sensor/data'
 
-# UDP socket setup
+# Initialize MQTT client
+mqtt_client = mqtt.Client()
+
+# Setup UDP socket for MQTT-SN communication
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp_socket.settimeout(5)
+udp_socket.bind(('', MQTT_SN_PORT))
 
-# Helper function to send MQTT-SN packet
-def send_packet(packet):
-    udp_socket.sendto(packet, (MQTT_SN_BROKER, MQTT_SN_PORT))
-    logging.info(f"Sent packet: {packet}")
+# Callback when a message is received from UDP (MQTT-SN)
+def on_mqtt_sn_message(data, addr):
+    logging.info(f"Received message from MQTT-SN: {data}")
 
-# Increment message ID to avoid collisions
-def increment_message_id():
-    global MESSAGE_ID
-    MESSAGE_ID += 1
-    if MESSAGE_ID > 65535:
-        MESSAGE_ID = 1
+    # Extract payload and forward to MQTT Broker
+    payload = data.decode('utf-8')
+    result = mqtt_client.publish(MQTT_TOPIC, payload)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logging.info(f"Message forwarded to MQTT Broker on topic {MQTT_TOPIC}: {payload}")
+    else:
+        logging.error(f"Failed to forward message to MQTT Broker on topic {MQTT_TOPIC}")
 
-# Encode MQTT-SN CONNECT message
-def connect():
-    logging.info("Sending CONNECT message...")
-    protocol_id = 0x01  # Protocol ID for MQTT-SN
-    keep_alive = 0x0A  # Keep alive (10 seconds)
-    client_id = CLIENT_ID.encode('utf-8')
-    length = 6 + len(client_id)
-
-    # Correct packet formation to include client_id properly
-    packet = struct.pack("!BBH", length, 0x04, protocol_id) + struct.pack("!H", keep_alive) + client_id
-    send_packet(packet)
-
-# Encode MQTT-SN REGISTER message
-def register_topic():
-    logging.info("Sending REGISTER message...")
-    topic_name = MQTT_SN_TOPIC.encode('utf-8')
-    length = 6 + len(topic_name)
-
-    # Proper struct packing for REGISTER
-    packet = struct.pack("!BBHH", length, 0x0A, 0x0000, MESSAGE_ID) + topic_name
-    send_packet(packet)
-
-# Encode MQTT-SN PUBLISH message
-def publish_message(payload):
-    global MESSAGE_ID
-    logging.info(f"Publishing message: {payload}")
-    payload_bytes = payload.encode('utf-8')
-    length = 7 + len(payload_bytes)
-    flags = 0x00  # QoS 0, Predefined topic ID
-
-    # Correct struct packing for PUBLISH message
-    packet = struct.pack("!BBHBH", length, 0x0C, flags, TOPIC_ID, MESSAGE_ID) + payload_bytes
-    send_packet(packet)
-
-    increment_message_id()  # Increment message ID after sending
-
-# Receive response from the broker
-def receive_response():
-    try:
+# Listen for incoming MQTT-SN messages
+def listen_udp():
+    logging.info("Listening for MQTT-SN messages...")
+    while True:
         data, addr = udp_socket.recvfrom(1024)
-        logging.info(f"Received response: {data}")
-    except socket.timeout:
-        logging.warning("No response from broker.")
+        on_mqtt_sn_message(data, addr)
 
-if __name__ == "__main__":
-    connect()
-    receive_response()
+# Callback when connected to the MQTT Broker
+def on_connect_mqtt(client, userdata, flags, rc):
+    if rc == 0:
+        logging.info("Connected to MQTT Broker successfully.")
+    else:
+        logging.error(f"Failed to connect to MQTT Broker, return code {rc}")
 
-    register_topic()
-    receive_response()
+# Setup MQTT Client (Destination)
+mqtt_client.on_connect = on_connect_mqtt
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 
-    # Periodic message publishing
-    try:
-        while True:
-            publish_message("Hello from MQTT-SN client")
-            receive_response()
-            time.sleep(10)
-    except KeyboardInterrupt:
-        logging.info("Stopping MQTT-SN client...")
-        udp_socket.close()
+# Start the MQTT loops
+mqtt_client.loop_start()
+
+try:
+    listen_udp()
+except KeyboardInterrupt:
+    logging.info("Stopping MQTT-SN listener...")
+    udp_socket.close()
