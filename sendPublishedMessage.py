@@ -16,6 +16,11 @@ MQTT_TOPIC = 'sensor/data'
 # Callback when message is received from MQTT broker
 def on_message(client, userdata, message):
     payload = message.payload.decode('utf-8')
+    # Check for keywords to filter
+    if "Hi" in payload or "Thanks" in payload:
+        print(f"Filtered out message: {payload}")
+        return  # Skip sending this message to Telegram
+
     telegram_payload = {
         'chat_id': CHAT_ID,
         'text': f'MQTT Message: {payload}'
