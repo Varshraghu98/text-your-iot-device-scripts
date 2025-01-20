@@ -1,16 +1,21 @@
 import paho.mqtt.client as mqtt
 import requests
+import yaml
+
+# Load configuration from YAML
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
 # Replace with your actual bot token and chat ID
-BOT_TOKEN = '7804241350:AAHqGGrZzzU3jtx3GBsCwDIJ3siqpLJNh-k'
-CHAT_ID = '8190888160'
+TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
+CHAT_ID = config["telegram"]["chat_id"]
 
 # Telegram API URL
-url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
+url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
 
 # MQTT Broker details
-MQTT_BROKER = 'localhost'
-MQTT_PORT = 1884
+MQTT_BROKER = config["mqtt"]["broker"]
+MQTT_PORT = config["mqtt"]["port"]
 MQTT_TOPIC = 'sensor/data'
 
 # Callback when message is received from MQTT broker
