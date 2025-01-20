@@ -3,3 +3,6 @@ paho-mqtt==1.6.1
 transformers==4.47.0
 pyyaml==6.0
 nest-asyncio==1.5.7
+
+telegram~=0.0.1
+requests~=2.32.3
