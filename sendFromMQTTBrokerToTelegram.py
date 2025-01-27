@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 import requests
 import yaml
+import json
 
 # Load configuration from YAML
 with open("config.yaml", "r") as file:
@@ -17,24 +18,33 @@ url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
 MQTT_BROKER = config["mqtt"]["broker"]
 MQTT_PORT = config["mqtt"]["port"]
 MQTT_TOPIC = 'sensor/data'
-
-# Callback when message is received from MQTT broker
 def on_message(client, userdata, message):
     payload = message.payload.decode('utf-8')
-    # Check for keywords to filter
-    if "Hi" in payload or "Thanks" in payload:
-        print(f"Filtered out message: {payload}")
-        return  # Skip sending this message to Telegram
 
-    telegram_payload = {
-        'chat_id': CHAT_ID,
-        'text': f'MQTT Message: {payload}'
-    }
-    response = requests.post(url, json=telegram_payload)
-    if response.status_code == 200:
-        print('Message sent successfully!')
-    else:
-        print('Failed to send message:', response.text)
+    # Parse the JSON payload
+    try:
+        payload_data = json.loads(payload)
+        temperature = payload_data.get("temperature")
+
+        if temperature is not None:
+            # Format temperature with degree Celsius symbol
+            temperature_message = f"The recorded temperature is  {temperature}°C. 🌡"
+
+            telegram_payload = {
+                'chat_id': CHAT_ID,
+                'text': f'{temperature_message}'
+            }
+            response = requests.post(url, json=telegram_payload)
+            if response.status_code == 200:
+                print('Message sent successfully!')
+            else:
+                print('Failed to send message:', response.text)
+        else:
+            print("Temperature not found in payload:", payload)
+
+    except json.JSONDecodeError:
+        print("Invalid JSON payload:", payload)
+
 
 # Setup MQTT client and connect
 def on_connect(client, userdata, flags, rc):

@@ -16,7 +16,13 @@ MQTT_BROKER = config["mqtt"]["broker"]
 MQTT_PORT = config["mqtt"]["port"]
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 CHAT_ID = config["telegram"]["chat_id"]
-MQTT_TOPIC = "telegram/data"  # Replace with the topic you want to publish to
+# MQTT Configuration
+#MQTT_BROKER = "localhost"  # Replace with your EC2 instance IP or hostname
+#MQTT_PORT = 1884
+MQTT_TOPIC = "telegram/data"  # Raeplace with the topic you want to publish to
+
+# Telegram Bot Token
+#TELEGRAM_BOT_TOKEN = "7804241350:AAHqGGrZzzU3jtx3GBsCwDIJ3siqpLJNh-k"  # Replace with your bot token
 
 
 # Configure logging
@@ -40,7 +46,6 @@ classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnl
 
 # Command to send temperature
 async def send_temperature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles the /tmp command and publishes a message to MQTT."""
     message = "Request for temperature received."
     logging.info(f"Received /tmp command from Telegram.")
 
@@ -50,7 +55,7 @@ async def send_temperature(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if status == 0:
         logging.info(f"Sent message to MQTT topic {MQTT_TOPIC}: {message}")
-        await update.message.reply_text("Temperature request has been sent to the MQTT topic.")
+        await update.message.reply_text("Temperature request has been sent to IOT device.🌡")
     else:
         logging.error(f"Failed to send message to MQTT topic {MQTT_TOPIC}")
         await update.message.reply_text("Failed to send the temperature request. Please try again later.")
@@ -67,24 +72,22 @@ async def handle_temperature_query(update: Update, context: ContextTypes.DEFAULT
     result = classifier(message, labels)
     logging.info(f"Classification result: {result}")
 
+    # Ignore thanks or acknowledgment messages
+    if any(keyword in message for keyword in ["thank", "thanks", "okay", "ok", "great", "cool"]):
+        logging.info("Acknowledgment message received. No action required.")
+        return
+
     # Check if the query is about temperature
     if result["labels"][0] == "temperature query":
         await send_temperature(update, context)
     else:
-        await update.message.reply_text("I can only check the temperature. Please ask about the temperature.")
+        await update.message.reply_text("I can only check the temperature. Please ask about the temperature. 😉")
 
 # Main function to set up the bot
 async def main() -> None:
-    # Create Application instance
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    # Add a command handler for /tmp
-    application.add_handler(CommandHandler("tmp", send_temperature))
-
-    # Add a handler for temperature-related messages
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_temperature_query))
 
-    # Start the bot
     logging.info("Starting the bot...")
     await application.run_polling()
 
