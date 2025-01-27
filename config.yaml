@@ -1,5 +1,5 @@
 mqtt:
-  broker: "54.235.25.245" #Replace with dynamic public IPv4 address of ec2 instance
+  broker: "localhost" #Replace with dynamic public IPv4 address of ec2 instance
   port: 1884
 
 telegram:
