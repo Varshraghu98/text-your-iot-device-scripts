@@ -1,23 +1,30 @@
+# Import required libraries:
+# - paho.mqtt.client for MQTT protocol handling
+# - requests for sending HTTP requests
+# - yaml for reading configuration files
+# - json for handling JSON data
 import paho.mqtt.client as mqtt
 import requests
 import yaml
 import json
 
-# Load configuration from YAML
+# Load configuration details (like MQTT broker info and Telegram bot credentials) from a YAML file
+# This ensures flexibility by separating code from configuration data
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
-
-# Replace with your actual bot token and chat ID
+# Replace placeholders with actual values from the loaded YAML configuration
 TELEGRAM_BOT_TOKEN = config["telegram"]["bot_token"]
 CHAT_ID = config["telegram"]["chat_id"]
 
-# Telegram API URL
+# Set up the Telegram API endpoint using the bot token
 url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
 
-# MQTT Broker details
+# Define MQTT broker details, including broker address, port, and topic to subscribe to
+# These are also loaded from the YAML configuration file
 MQTT_BROKER = config["mqtt"]["broker"]
 MQTT_PORT = config["mqtt"]["port"]
 MQTT_TOPIC = 'sensor/data'
+# Callback function triggered whenever a message is received on the subscribed topic
 def on_message(client, userdata, message):
     payload = message.payload.decode('utf-8')
 
