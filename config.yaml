@@ -1,5 +1,5 @@
 mqtt:
-  broker: "localhost" #Not required to replace this if the script is running on EC2 , replace it with public IPv4 address of the EC2 instance while running locally.
+  broker: "3.85.184.130" #Not required to replace this if the script is running on EC2 , replace it with public IPv4 address of the EC2 instance while running locally.
   port: 1884
 
 telegram:
